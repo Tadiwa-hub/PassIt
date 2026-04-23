@@ -10,7 +10,7 @@ export const api = {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Authentication required');
 
-    // Call Supabase Edge Function instead of Cloudflare
+    // Call Supabase Edge Function
     const { data, error } = await supabase.functions.invoke('initiate-payment', {
       body: { 
         subjectId, 
@@ -23,11 +23,23 @@ export const api = {
     });
 
     if (error) {
-      // Handle the case where the function hasn't been deployed yet
-      if (error.message.includes('404')) {
-        throw new Error('Payment system is still being set up. Please try again in 2 minutes.');
+      // Try to extract the actual error message from the response
+      let errorMsg = error.message || 'Payment initiation failed';
+      
+      // The error context may contain the response body with details
+      if (error.context && typeof error.context.json === 'function') {
+        try {
+          const errBody = await error.context.json();
+          errorMsg = errBody.error || errorMsg;
+        } catch (_) { /* ignore parse error */ }
       }
-      throw new Error(error.message || 'Payment initiation failed');
+      
+      console.error('Payment error details:', errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    if (data && data.error) {
+      throw new Error(data.error);
     }
 
     return data;
