@@ -246,9 +246,14 @@ app.post("/api/paynow-webhook", async (req, res) => {
 const distPath = path.join(__dirname, "../dist");
 app.use(express.static(distPath));
 
-// Handle React routing, return all requests to React app
-app.get("*", (req, res) => {
-  if (req.path.startsWith("/api/")) return res.status(404).json({ error: "API route not found" });
+// Handle all other requests
+app.all("*", (req, res) => {
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
+  }
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
   res.sendFile(path.join(distPath, "index.html"));
 });
 

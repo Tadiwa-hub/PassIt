@@ -19,9 +19,15 @@ export const api = {
       body: JSON.stringify({ subjectId, subjectTitle, phone, paymentMethod }),
     });
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Payment initiation failed');
-    return data;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Payment initiation failed');
+      return data;
+    } else {
+      const text = await response.text();
+      throw new Error(`Server returned non-JSON response (${response.status}): ${text.slice(0, 100)}`);
+    }
   },
 
   /**
