@@ -25,10 +25,9 @@ serve(async (req) => {
     // 1. Prepare Paynow Data (Explicit order for hashing)
     const amount = "10.00"
     const reference = `SUB-${subjectId}-${userId}-${Date.now()}`
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")
-    if (!supabaseUrl) {
-      throw new Error("Missing SUPABASE_URL in Edge Function env")
-    }
+    
+    // Use the dynamic URL or fallback to your project ID
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "https://swpzxpsisasfequdawjh.supabase.co"
     const resultUrl = `${supabaseUrl}/functions/v1/paynow-webhook`
     const returnUrl = DEFAULT_RETURN_URL
 
