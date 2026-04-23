@@ -10,24 +10,27 @@ export const api = {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Authentication required');
 
-    const response = await fetch(`${API_BASE}/initiate-payment`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ subjectId, subjectTitle, phone, paymentMethod }),
+    // Call Supabase Edge Function instead of Cloudflare
+    const { data, error } = await supabase.functions.invoke('initiate-payment', {
+      body: { 
+        subjectId, 
+        subjectTitle, 
+        phone, 
+        paymentMethod,
+        userId: session.user.id,
+        userEmail: session.user.email
+      }
     });
 
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Payment initiation failed');
-      return data;
-    } else {
-      const text = await response.text();
-      throw new Error(`Server returned non-JSON response (${response.status}): ${text.slice(0, 100)}`);
+    if (error) {
+      // Handle the case where the function hasn't been deployed yet
+      if (error.message.includes('404')) {
+        throw new Error('Payment system is still being set up. Please try again in 2 minutes.');
+      }
+      throw new Error(error.message || 'Payment initiation failed');
     }
+
+    return data;
   },
 
   /**
