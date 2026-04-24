@@ -213,21 +213,21 @@ export default function CoursePlayer() {
   const youtubeId = activeLesson ? getYTId(activeLesson.video_url) : null;
 
   return (
-    <div className="course-player-container">
+    <div className="course-player-container" style={{ margin: '-1rem' }}>
 
       {/* ===== MOBILE TAB SWITCHER ===== */}
-      <div className="player-mobile-tabs">
+      <div className="player-mobile-tabs" style={{ position: 'sticky', top: 0, left: 0, right: 0, zIndex: 100 }}>
         <button 
           onClick={() => setMobileTab('video')}
           className={`player-tab-btn ${mobileTab === 'video' ? 'active' : ''}`}
-          style={{ borderBottomColor: mobileTab === 'video' ? subject.color_hex : 'transparent' }}
+          style={{ borderBottom: `3px solid ${mobileTab === 'video' ? subject.color_hex : 'transparent'}` }}
         >
           ▶ Now Playing
         </button>
         <button 
           onClick={() => setMobileTab('syllabus')}
           className={`player-tab-btn ${mobileTab === 'syllabus' ? 'active' : ''}`}
-          style={{ borderBottomColor: mobileTab === 'syllabus' ? subject.color_hex : 'transparent' }}
+          style={{ borderBottom: `3px solid ${mobileTab === 'syllabus' ? subject.color_hex : 'transparent'}` }}
         >
           ☰ Course Content
         </button>

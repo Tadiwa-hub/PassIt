@@ -267,7 +267,6 @@ button {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: calc(100vh - var(--nav-height) - 70px);
   background: #1c1d1f; /* Udemy dark theme base */
 }
 
