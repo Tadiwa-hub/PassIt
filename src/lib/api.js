@@ -10,36 +10,25 @@ export const api = {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Authentication required');
 
-    // Call Supabase Edge Function
-    const { data, error } = await supabase.functions.invoke('initiate-payment', {
-      body: { 
+    // Call Cloudflare Pages Function
+    const response = await fetch(`${API_BASE}/initiate-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ 
         subjectId, 
         subjectTitle, 
         phone, 
-        paymentMethod,
-        userId: session.user.id,
-        userEmail: session.user.email
-      }
+        paymentMethod
+      })
     });
 
-    if (error) {
-      // Try to extract the actual error message from the response
-      let errorMsg = error.message || 'Payment initiation failed';
-      
-      // The error context may contain the response body with details
-      if (error.context && typeof error.context.json === 'function') {
-        try {
-          const errBody = await error.context.json();
-          errorMsg = errBody.error || errorMsg;
-        } catch (_) { /* ignore parse error */ }
-      }
-      
-      console.error('Payment error details:', errorMsg);
-      throw new Error(errorMsg);
-    }
+    const data = await response.json();
 
-    if (data && data.error) {
-      throw new Error(data.error);
+    if (!response.ok) {
+      throw new Error(data.error || `Payment initiation failed (${response.status})`);
     }
 
     return data;

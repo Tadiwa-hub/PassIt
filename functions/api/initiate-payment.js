@@ -1,3 +1,5 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   
@@ -15,9 +17,34 @@ export async function onRequestPost(context) {
     const SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY;
     const RETURN_URL = env.PAYNOW_RETURN_URL || "https://passit.app/dashboard";
 
-    if (!PAYNOW_INTEGRATION_ID || !PAYNOW_INTEGRATION_KEY) {
+    if (!PAYNOW_INTEGRATION_ID || !PAYNOW_INTEGRATION_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      console.error("Missing env vars:", { 
+        id: !!PAYNOW_INTEGRATION_ID, 
+        key: !!PAYNOW_INTEGRATION_KEY, 
+        url: !!SUPABASE_URL, 
+        anon: !!SUPABASE_ANON_KEY 
+      });
       return new Response(JSON.stringify({ error: "Server configuration missing" }), { status: 500 });
     }
+
+    // Initialize Supabase to get user and subject price
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid session" }), { status: 401 });
+    }
+
+    // Fetch Subject Price
+    const { data: subject, error: subError } = await supabase
+      .from('subjects')
+      .select('price')
+      .eq('id', subjectId)
+      .single();
+    
+    const amount = (subject?.price || 10.00).toFixed(2);
 
     // Hash Helper (Web Crypto)
     const sha512 = async (str) => {
@@ -27,9 +54,9 @@ export async function onRequestPost(context) {
     };
 
     // Calculate Hash
-    const reference = `SUB_${subjectId}_CF_${Date.now()}`;
-    const amount = "10.00"; // Fallback or fetch from DB
-    const resultUrl = env.PAYNOW_RESULT_URL || `${env.CF_PAGES_URL || ''}/api/paynow-webhook`;
+    // Reference format: SUB_subjectId_userId_timestamp
+    const reference = `SUB_${subjectId}_${user.id}_${Date.now()}`;
+    const resultUrl = env.PAYNOW_RESULT_URL || `${env.CF_PAGES_URL || 'https://passit.app'}/api/paynow-webhook`;
 
     const fields = [
       ["resulturl", resultUrl],
@@ -38,9 +65,14 @@ export async function onRequestPost(context) {
       ["amount", amount],
       ["id", PAYNOW_INTEGRATION_ID],
       ["additionalinfo", `Payment for ${subjectTitle}`],
-      ["authemail", "customer@passit.app"],
-      ["status", "Message"]
+      ["authemail", user.email || "customer@passit.app"]
     ];
+
+    if (phone) fields.push(["phone", String(phone)]);
+    if (paymentMethod) fields.push(["method", String(paymentMethod)]);
+    
+    fields.push(["status", "Message"]);
+    fields.push(["currency", "USD"]);
 
     let hashString = "";
     for (const [k, v] of fields) hashString += v;
@@ -61,16 +93,20 @@ export async function onRequestPost(context) {
     const params = new URLSearchParams(resultText);
 
     if (params.get("status") !== "Ok") {
-      return new Response(JSON.stringify({ error: params.get("error") || "Paynow error" }), { status: 400 });
+      return new Response(JSON.stringify({ 
+        error: params.get("error") || params.get("message") || "Paynow initiation failed" 
+      }), { status: 400 });
     }
 
     return new Response(JSON.stringify({
       status: "Ok",
       pollUrl: params.get("pollurl"),
-      browserUrl: params.get("browserurl")
+      browserUrl: params.get("browserurl"),
+      instructions: params.get("instructions")
     }), { headers: { "Content-Type": "application/json" } });
 
   } catch (err) {
+    console.error("Initiate error:", err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }
