@@ -58,12 +58,14 @@ export default function Header() {
     <header className="glass-panel app-header" style={{
       position: 'fixed',
       top: 0,
-      width: '100%',
+      left: 0,
+      right: 0,
       height: 'var(--nav-height)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      zIndex: 50
+      zIndex: 1000,
+      padding: '0 1rem'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <BookOpen size={32} color="var(--accent-physics)" />
