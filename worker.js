@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from '@supabase/supabase-js'
 
 export default {
   async fetch(request, env) {
@@ -18,22 +18,20 @@ export default {
 
     // Route: /api/initiate-payment
     if (url.pathname === "/api/initiate-payment" && request.method === "POST") {
-      return handleInitiatePayment(request, env, corsHeaders);
+      return handleInitiatePayment(request, env, url, corsHeaders);
     }
 
     // Route: /api/check-payment
     if (url.pathname === "/api/check-payment" && request.method === "POST") {
-      return handleCheckPayment(request, env, corsHeaders);
+      return handleCheckPayment(request, env, url, corsHeaders);
     }
 
     // Route: /api/paynow-webhook
     if (url.pathname === "/api/paynow-webhook" && request.method === "POST") {
-      return handlePaynowWebhook(request, env);
+      return handlePaynowWebhook(request, env, url);
     }
 
     // Fallback: If not an API route, let Cloudflare serve the static assets
-    // In "Worker with Assets", if you return nothing or a special response, 
-    // it falls back to assets, but here we'll just return a 404 for unknown API
     if (url.pathname.startsWith("/api/")) {
       return new Response(JSON.stringify({ error: "Not Found" }), { 
         status: 404, 
@@ -46,7 +44,7 @@ export default {
   }
 };
 
-async function handleInitiatePayment(request, env, corsHeaders) {
+async function handleInitiatePayment(request, env, url, corsHeaders) {
   try {
     const { subjectId, subjectTitle, phone, paymentMethod } = await request.json();
     const authHeader = request.headers.get("authorization") || "";
@@ -55,6 +53,11 @@ async function handleInitiatePayment(request, env, corsHeaders) {
     if (!token) return new Response(JSON.stringify({ error: "Missing Authorization" }), { status: 401, headers: corsHeaders });
 
     const { PAYNOW_INTEGRATION_ID, PAYNOW_INTEGRATION_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, PAYNOW_RETURN_URL } = env;
+    
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      return new Response(JSON.stringify({ error: "Supabase configuration missing on server" }), { status: 500, headers: corsHeaders });
+    }
+
     const RETURN_URL = PAYNOW_RETURN_URL || "https://passit.app/dashboard";
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -118,7 +121,7 @@ async function handleInitiatePayment(request, env, corsHeaders) {
   }
 }
 
-async function handleCheckPayment(request, env, corsHeaders) {
+async function handleCheckPayment(request, env, url, corsHeaders) {
   try {
     const { pollUrl } = await request.json();
     const response = await fetch(pollUrl);
@@ -141,7 +144,7 @@ async function handleCheckPayment(request, env, corsHeaders) {
   }
 }
 
-async function handlePaynowWebhook(request, env) {
+async function handlePaynowWebhook(request, env, url) {
   try {
     const formData = await request.formData();
     const reference = formData.get("reference");
